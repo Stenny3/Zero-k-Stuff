@@ -489,6 +489,7 @@ local function SpawnThread()
 end
  
 function gadget:Initialize()
+  Spring.Echo("Ayy lmao: Initialized. Building tables...")
   mapx = Game.mapSizeX
   mapy = Game.mapSizeZ
   gaiaid = Spring.GetGaiaTeamID()
