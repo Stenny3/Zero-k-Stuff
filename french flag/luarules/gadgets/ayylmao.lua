@@ -10,21 +10,25 @@ function gadget:GetInfo()
   }
 end
  
-if gadgetHandler:IsSyncedCode() then
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
  
 local debug = true
  
+local alt = {"alt"}
 local mapx
 local mapy
 local gaiaid = 0
 local targetnum = 1
 local maxweight = 0
 local level = 0
-local techpointsneeded = 200
+local nextlevel = 200
 --weightdefs--
 local baddefs = {}
 local kamikazedefs = {}
 local weightdefs = {}
+local seenunits = {}
 --targeting--
 local targettable = {}
 local myunits = {}
@@ -52,8 +56,7 @@ local abductors =
 	genocidedrone = 
 	{
 		unitdef = 'genocidedrone',
-		spawnrate = 9000,
-		--spawndecrease = 9000,
+		spawnrate = 6000,
 		minspawnrate = 1000,
 		unlocked = false,
 		max = 10,
@@ -64,7 +67,6 @@ local abductors =
 	{
 		unitdef = 'siegeship',
 		spawnrate = 12000,
-		--spawndecrease = 3000,
 		minspawnrate = 1500,
 		unlocked = false,
 		max = 20,
@@ -75,7 +77,6 @@ local abductors =
 	{
 		unitdef = 'flyingcom',
 		spawnrate = 6000,
-		--spawndecrease = 18000,
 		minspawnrate = 600,
 		unlocked = false,
 		max = 30,
@@ -97,9 +98,7 @@ local abductors =
 	{
 		unitdef = 'storagedrone',
 		spawnrate = 6000,
-		--spawndecrease = 9000,
 		unlocked = false,
-		--starttime = 9000,
 		max = 20,
 		hpbonus = 0.33,
 		techpoints = 0,
@@ -141,10 +140,14 @@ local function AiThread()
 	local unitqueue
 	for unitID,_ in pairs(otherunits) do
 		unitqueue = Spring.GetCommandQueue(unitID)
-		if #unitqueue == 0 then -- idle unit
+		Spring.Echo("unit queue:" .. tostring(#unitqueue))
+		if unitqueue == nil or #unitqueue == 0 then -- idle unit
 			local randx = math.random(0,mapx)
 			local randy = math.random(0,mapy)
-			Spring.GiveOrderToUnit(unitID,CMD.FIGHT,{ranx,Spring.GetGroundHeight(randx,randy),rany},0)
+			Spring.Echo("Sending unit to " .. randx,randy)
+			Spring.GiveOrderToUnit(unitID,CMD.FIGHT,{ranx,Spring.GetGroundHeight(randx,randy),rany},alt)
+			unitqueue = Spring.GetCommandQueue(unitID)
+			Spring.Echo(#unitqueue)
 		end
 	end
 end
@@ -167,9 +170,9 @@ local function GetUnitTransporting(id)
 	else
 		transporting = true
 	end
-	if debug then
-		Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] ID " .. id .. " is transporting: " .. tostring(transporting))
-	end
+	--if debug then
+		--Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] ID " .. id .. " is transporting: " .. tostring(transporting))
+	--end
 	return transporting
 end
 
@@ -223,11 +226,13 @@ local function SpawnLimitlessAbductor(abdtype)
 		y = mapy + 2000
 	end
 	unit = Spring.CreateUnit(abdtype,x,200,y,0,gaiaid)
-	Spring.MoveCtrl.Enable(unit)
-	Spring.MoveCtrl.SetPosition(x,0,y)
-	Spring.MoveCtrl.Disable(unit)
-	Spring.SetUnitMaxHealth(unit, (UnitDefs[abdtype].health*healthbonus))
-	Spring.SetUnitHealth(unit,(UnitDefs[abductors[abdtype].unitdef].health*healthbonus))
+	--Spring.MoveCtrl.Enable(unit)
+	--Spring.MoveCtrl.SetPosition(x,0,y)
+	--Spring.MoveCtrl.Disable(unit)
+	local hp, maxhp,_ = Spring.GetUnitHealth(unit)
+	Spring.Echo("Health: " .. hp .. "\nmax: " .. maxhp .. "\nHealth bonus: " .. (abductors[abdtype].hpbonus - 1) * 100 .. "%")
+	Spring.SetUnitMaxHealth(unit, (maxhp*abductors[abdtype].hpbonus))
+	Spring.SetUnitHealth(unit,(hp*abductors[abdtype].hpbonus))
 	if level > 20 and Spring.ValidUnitID(unit) then
 		Spring.SetUnitStealth(unit, true)
 	end
@@ -268,11 +273,13 @@ local function SpawnAbductor(abdtype)
     y = mapy + 2000
   end
   unit = Spring.CreateUnit(UnitDefNames[abductors[abdtype].unitdef].id,x,200,y,0,gaiaid)
-  Spring.MoveCtrl.Enable(unit)
-  Spring.MoveCtrl.SetPosition(x,0,y)
-  Spring.MoveCtrl.Disable(unit)
-  Spring.SetUnitMaxHealth(unit, (UnitDefs[abductors[abdtype].unitdef].health*healthbonus))
-  Spring.SetUnitHealth(unit,(UnitDefs[abductors[abdtype].unitdef].health*healthbonus))
+  --Spring.MoveCtrl.Enable(unit)
+  --Spring.MoveCtrl.SetPosition(x,0,y)
+  --Spring.MoveCtrl.Disable(unit)
+	local hp, maxhp,_ = Spring.GetUnitHealth(unit)
+	Spring.Echo("Health: " .. hp .. "\nmax: " .. maxhp .. "\nHealth bonus: " .. (abductors[abdtype].hpbonus - 1) * 100 .. "%")
+	Spring.SetUnitMaxHealth(unit, (maxhp*abductors[abdtype].hpbonus))
+	Spring.SetUnitHealth(unit,(hp*abductors[abdtype].hpbonus))
   if level > 20 and Spring.ValidUnitID(unit) then
     Spring.SetUnitStealth(unit, true)
   end
@@ -284,7 +291,8 @@ local function SpawnAbductor(abdtype)
   end
   if abdtype == "abductor" then
 	myunits[unit] = {task = "none"}
-  else otherunits[unit] = unit
+  else 
+	otherunits[unit] = unit
   end
   unit,x,y = nil
 end
@@ -337,9 +345,7 @@ local function MajorOffense()
 end
 
 local function TechHandler()
-	if Spring.GetGameFrame()%300 == 0 then
-		Spring.Echo("Tech Handler: " .. "\nPoints: " .. techpoints .. "/" .. nextlevel .. "(Level " .. level .. ")")
-	end
+	Spring.Echo("Tech Handler: " .. "\nPoints: " .. techpoints .. "/" .. nextlevel .. "(Level " .. level .. ")")
 	if techpoints > nextlevel then
 		Spring.Echo("New level: " .. level)
 		if level == 0 then
@@ -404,11 +410,11 @@ local function TechHandler()
 		else
 			UpgradeBestUnit()
 		end
-		techpoints = techpoints - techpointsneeded
-		techpointsneeded = ((level+1) * 200)
+		techpoints = techpoints - nextlevel
+		nextlevel = ((level+1) * 200)
 		level = level + 1
 	end
-	if level < 1 and Spring.GetGameFrame()%30 == 0 then
+	if level < 2 and Spring.GetGameFrame()%30 == 0 then
 		techpoints = techpoints + 1
 	end
 	if techpoints < -500 and Spring.GetGameFrame() > nextoffensive then
@@ -416,44 +422,102 @@ local function TechHandler()
 		MajorOffense()
 	end
 end
+
+local function Ascension()
+	for id,data in pairs(ascensionunits) do
+		if ascensionunits[id] then
+			if Spring.ValidUnitID(id) and data.movectrl == false then
+				--Spring.MoveCtrl.Enable(ascensionunits[i].myid)
+				Spring.GiveOrderToUnit(id, CMD.MOVE_STATE, {0}, 0)
+				if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: setting movestate to hold position.") end
+				data.movectrl = true
+			end
+			if Spring.ValidUnitID(id) == false then -- prevents breaking the next bit of code
+				if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Invalid unitid, removing.") end
+				ascensionunits[id] = nil
+			else
+				data.xpo = data.xpo + 1
+				--ascensionunits[i].ro = ascensionunits[i].ro + 0.02 * ascensionunits[i].xpo
+				_,data.y,_ = Spring.GetUnitPosition(id)
+				if data.y < 5000 and Spring.ValidUnitID(id) then
+					if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Adding " .. data.xpo*2 .. "  impulse to unit.") end
+					Spring.AddUnitImpulse(id,0,data.xpo,0)
+				end
+				--Spring.SetUnitPosition(ascensionunits[i].myid,ascensionunits[i].x,ascensionunits[i].y,ascensionunits[i].z)
+				--Spring.MoveCtrl.SetRotationVelocity(ascensionunits[i].myid,ascensionunits[i].ro,0,0)
+				if data.y > 3000 and Spring.ValidUnitID(id) then
+					if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: reached y > 3000..") end
+					local transported = Spring.GetUnitIsTransporting(id)
+					if myunits[id].task ~= "Drop" and transported[1] ~= nil then
+						Spring.Echo("Abduction successful! Earned " .. math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25) .. "techpoints.")
+						if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Issueing self destruct.") end
+						Spring.GiveOrderToUnit(id,CMD.SELFD,{},0)
+						ascensionunits[id] = nil
+						immuneunits[id] = true
+						Spring.Echo("Abduction Successful! Gained " .. math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25))
+						abductors["abductor"].techpoints = abductors["abductor"].techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25)
+						techpoints = techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25)
+					elseif transported[1] ~= nil then
+						if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Issueing drop order.") end
+						Spring.GiveOrderToUnit(id,35000,{},0)
+						Spring.AddUnitImpulse(id,0,data.xpo*-2,0)
+						techpoints = techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/100)
+						abductors["abductor"].techpoints = abductors["abductor"].techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/100) -- earned by "probing".
+						myunits[id].task = "None"
+						--Spring.MoveCtrl.Disable(ascensionunits[i].myid)
+						myunits[id].target = nil -- throw unit back into the pool
+						ascensionunits[id] = nil
+					else
+						ascensionunits[id] = nil
+						myunits[id].task = "None"
+					end
+				end
+			end
+		end
+	end
+end
  
 local function GetRandomWeightedChanceID()
-  local hops = math.random(1,math.ceil(maxweight/6))
-  if hops < 5 then hops = 5 end
-  if debug then Spring.Log("Ayylmao", LOG.NOTICE,"Hop Count: " .. hops) end
-  if #targettable == 1 then
-    return targettable[1].id
-  else
-    if #targettable == 0 then
-      return false
-    end
-    repeat
-      if #targettable == 1 then
-        return targettable[1].id
-      end
-      if #targettable == 0 or targettable == nil then
-        return false
-      end
-      targetnum = targetnum + 1
-      if hops >= 1 and targetnum >= #targettable then
-        targetnum = 1
-      end
-      if Spring.ValidUnitID(targettable[targetnum].id) then
-        hops = hops - targettable[targetnum].weight
-      else
-        if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] ID " .. targettable[targetnum].id .. " is invalid. Removing.") end
-        table.remove(targettable[targetnum])
-      end
-    until hops < 1
-    hops = nil
-    if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Target ID Got: " .. targetnum .. " (ID: "  .. targettable[targetnum].id .. ").") end
-    return targettable[targetnum].id
-  end
+	local hops = math.random(1,math.ceil(maxweight/6))
+	if hops < 5 then hops = 5 end
+	if debug then Spring.Log("Ayylmao", LOG.NOTICE,"Hop Count: " .. hops) end
+	if #targettable == 1 then
+		return targettable[1].id
+	else
+		if #targettable == 0 then
+			return false
+		end
+		repeat
+			if #targettable == 1 then
+				return targettable[1].id
+			end
+			if #targettable == 0 or targettable == nil then
+				return false
+			end
+			targetnum = targetnum + 1
+			if hops >= 1 and targetnum >= #targettable then
+				targetnum = 1
+			end
+			if Spring.ValidUnitID(targettable[targetnum].id) then
+				hops = hops - targettable[targetnum].weight
+			else
+				if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] ID " .. targettable[targetnum].id .. " is invalid. Removing.") end
+				table.remove(targettable[targetnum])
+			end
+		until hops < 1
+		hops = nil
+		if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Target ID Got: " .. targetnum .. " (ID: "  .. targettable[targetnum].id .. ").") end
+		return targettable[targetnum].id
+	end
 end
  
  
 local function AssignOrder(ID)
 	local targetid = GetRandomWeightedChanceID()
+	if seenunits[targetid] == nil then
+		Spring.SetUnitLosMask(targetid, select(6,Spring.GetTeamInfo(gaiaid)),1)
+		seenunits[targetid] = true
+	end
 	if targetid == false then
 		return
 	end
@@ -461,19 +525,19 @@ local function AssignOrder(ID)
 		myunits[ID].task = "Kamikaze"
 		myunits[ID].target = {id = targetid, x=0, y=0}
 		local x,y,z = Spring.GetUnitPosition(targetid)
-		Spring.GiveOrderToUnit(ID,CMD.MOVE,{x,y,z},0)
+		Spring.GiveOrderToUnit(ID,CMD.MOVE,{x,y,z},alt)
 		x,y,z,targetid = nil
 	else
 		myunits[ID].task = "Abduct"
 		myunits[ID].target = targetid
-		Spring.GiveOrderToUnit(ID,CMD.LOAD_UNITS,{targetid},0)
+		Spring.GiveOrderToUnit(ID,CMD.LOAD_UNITS,{targetid},alt)
 		targetid = nil
 	end
 end
  
 local function SpawnThread()
 	for abdtype,data in pairs(abductors) do
-		Spring.Echo("Spawnthread:" .. tostring(abdtype))
+		--Spring.Echo("Spawnthread:" .. tostring(abdtype))
 		if Spring.GetGameFrame()%data["spawnrate"] == 0 and CanSpawn(abdtype) and data.unlocked == true then
 			Spring.Echo("Spawning abductor. type: " .. abdtype)
 			SpawnAbductor(abdtype)
@@ -519,133 +583,97 @@ function gadget:Initialize()
 end
  
 function gadget:GameFrame(f)
-  -- spawns --
-  SpawnThread()
-  AiThread()
-  -- AI --
-  if f%90 == 0 then -- update unit orders.
-    -- update abductor orders
-    for id,data in pairs(myunits) do
-      if data.target == nil and data.task ~= "Kamikaze" then
-        AssignOrder(id)
-      elseif data.task == "Abduct" then -- unit was/is abducting something
-        if Spring.ValidUnitID(data.target) == false then -- switch to kamikaze
-          data.task = "Kamikaze"
-		  immuneunits[id] = true
-          data.target = {id = Spring.GetUnitNearestEnemy(id,20000,false),x=0,y=0}
-          data.target.x, _, data.target.y = Spring.GetUnitPosition(data.target.id)
-          if Spring.ValidUnitID(data.target) then Spring.GiveOrderToUnit(id,CMD.MOVE,{data.target.x,Spring.GetGroundHeight(data.target.x,data.target.y),data.target.y},0) else data.task = "none" end
-        end
-        if GetUnitTransporting(id) and (data.task ~= "Carry" and data.task ~= "drop") then -- abduction successful
-          data.task = "Carry"
-          if math.random(1,8) > 7 then
-            data.task = "drop"
-            data.target = {id = kamikazetable[math.random(1,#kamikazetable)].id,x=0,y=0}
-            data.target.x,_,data.target.y = Spring.GetUnitPosition(data.target.id)
-          else
-            data.target = {x=(mapx/2 + 100) - math.random(1,mapx/2),y=(mapy/2 +100) - math.random(1,mapy/2)}
-          end
-          Spring.GiveOrderToUnit(id,CMD.MOVE,{data.target.x,Spring.GetGroundHeight(data.target.x,data.target.y),data.target.y},0)
-          if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] AI: Ordering " .. id .. " to move to (" .. data.target.x .. "," .. data.target.y .. ").") end
-        end
-        if data.task == "Carry" or data.task == "drop" then
-          Spring.GiveOrderToUnit(id,CMD.MOVE,{data.target.x,Spring.GetGroundHeight(data.target.x,data.target.y),data.target.y},0) -- make sure it is moving towards its goal
-        end
-        if data.task == "Kamikaze" then
-          local x,y,z = Spring.GetUnitPosition(id)
-          if (x-data.target.x)*(x-data.target.x)+ (z -data.target.y)* (z -data.target.y) < 150*150 then
-            Spring.AddUnitImpulse(id,0,-60,0)
-            Spring.GiveOrderToUnit(id,CMD.SELFD,{},0)
-          end
-        end
-      end
-      if GetUnitTransporting(id) and (data.task == "Carry" or data.task == "drop") then
-        local x,y,z = Spring.GetUnitPosition(id)
-         if (x-data.target.x)*(x-data.target.x)+ (z -data.target.y)* (z -data.target.y) < 100*100 then -- time to begin our ascent
-          if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] AI: arrived at (" .. x .. "," .. y .. "). Begining ascent loop.") end
-          local id2 = id
-          --table.insert(ascensionunits,{myid = id2,x=x,y=y,z=z,xpo=1,ro=0,movectrl = false})
-          ascensionunits[id] = {x=x,y=y,z=z,xpo=1,ro=0,movectrl = false}
-          x,y,z,id2 = nil
-        end
-      end
-    end
-  end
-  -- Ascension --
-  if f%5 == 0 and ascensionunits then
-    for id,data in pairs(ascensionunits) do
-      if ascensionunits[id] then
-        if Spring.ValidUnitID(id) and data.movectrl == false then
-          --Spring.MoveCtrl.Enable(ascensionunits[i].myid)
-          Spring.GiveOrderToUnit(id, CMD.MOVE_STATE, {0}, 0)
-          if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: setting movestate to hold position.") end
-          data.movectrl = true
-        end
-        if Spring.ValidUnitID(id) == false then -- prevents breaking the next bit of code
-          if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Invalid unitid, removing.") end
-          ascensionunits[id] = nil
-        else
-          data.xpo = data.xpo + 1
-          --ascensionunits[i].ro = ascensionunits[i].ro + 0.02 * ascensionunits[i].xpo
-          _,data.y,_ = Spring.GetUnitPosition(id)
-          if data.y < 5000 and Spring.ValidUnitID(id) then
-            if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Adding " .. data.xpo*2 .. "  impulse to unit.") end
-            Spring.AddUnitImpulse(id,0,data.xpo,0)
-          end
-          --Spring.SetUnitPosition(ascensionunits[i].myid,ascensionunits[i].x,ascensionunits[i].y,ascensionunits[i].z)
-          --Spring.MoveCtrl.SetRotationVelocity(ascensionunits[i].myid,ascensionunits[i].ro,0,0)
-          if data.y > 3000 and Spring.ValidUnitID(id) then
-            if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: reached y > 3000..") end
-			local transported = Spring.GetUnitIsTransporting(id)
-            if myunits[id].task ~= "Drop" and transported[1] ~= nil then
-              if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Issueing self destruct.") end
-              Spring.GiveOrderToUnit(id,CMD.SELFD,{},0)
-              ascensionunits[id] = nil
-			  immuneunits[id] = true
-			  Spring.Echo("Abduction Successful! Gained " .. math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25))
-			  abductors["abductor"].techpoints = abductors["abductor"].techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25)
-			  techpoints = techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25)
-            elseif transported[1] ~= nil then
-              if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Issueing drop order.") end
-              Spring.GiveOrderToUnit(id,35000,{},0)
-              Spring.AddUnitImpulse(id,0,data.xpo*-2,0)
-			  techpoints = techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/100)
-			  abductors["abductor"].techpoints = abductors["abductor"].techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/100) -- earned by "probing".
-              myunits[id].task = "None"
-              --Spring.MoveCtrl.Disable(ascensionunits[i].myid)
-              myunits[id].target = nil -- throw unit back into the pool
-              ascensionunits[id] = nil
-			else
-				ascensionunits[id] = nil
-				myunits[id].task = "None"
-            end
-          end
-        end
-      end
-    end
-  end
+	if f == 2 then
+		Spring.SetGlobalLos(select(6,Spring.GetTeamInfo(Spring.GetGaiaTeamID())),true)
+		Spring.Echo("Gaia allyteam: " .. select(6,Spring.GetTeamInfo(gaiaid)))
+	end
+	if f%30 == 0 then
+		TechHandler()
+	end
+	-- spawns --
+	SpawnThread()
+	AiThread()
+	-- AI --
+	if f%90 == 0 then -- update unit orders.
+		-- update abductor orders
+		for id,data in pairs(myunits) do
+			if data.target == nil and data.task ~= "Kamikaze" then
+				AssignOrder(id)
+			elseif data.task == "Abduct" then -- unit was/is abducting something
+				if Spring.ValidUnitID(data.target) == false then -- switch to kamikaze
+					data.task = "Kamikaze"
+					immuneunits[id] = true
+					data.target = {id = Spring.GetUnitNearestEnemy(id,20000,false),x=0,y=0}
+					data.target.x, _, data.target.y = Spring.GetUnitPosition(data.target.id)
+					if Spring.ValidUnitID(data.target) then Spring.GiveOrderToUnit(id,CMD.MOVE,{data.target.x,Spring.GetGroundHeight(data.target.x,data.target.y),data.target.y},alt) else data.task = "none" end
+				end
+				if GetUnitTransporting(id) and (data.task ~= "Carry" and data.task ~= "drop") then -- abduction successful
+					data.task = "Carry"
+					if math.random(1,8) > 7 then
+						data.task = "drop"
+						if #kamikazetable == 1 then
+							data.target = {id = kamikazetable[1].id,x=0,y=0}
+						elseif #kamikazetable == 0 then
+							data.target = {x=(mapx/2 + 100) - math.random(1,mapx/2),y=(mapy/2 +100) - math.random(1,mapy/2)}
+						else
+							data.target = {id = kamikazetable[math.random(1,#kamikazetable)].id,x=0,y=0}
+							data.target.x,_,data.target.y = Spring.GetUnitPosition(data.target.id)
+						end
+					else
+						data.target = {x=(mapx/2 + 100) - math.random(1,mapx/2),y=(mapy/2 +100) - math.random(1,mapy/2)}
+					end
+					Spring.GiveOrderToUnit(id,CMD.MOVE,{data.target.x,Spring.GetGroundHeight(data.target.x,data.target.y),data.target.y},0)
+					if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] AI: Ordering " .. id .. " to move to (" .. data.target.x .. "," .. data.target.y .. ").") end
+				end
+				if data.task == "Carry" or data.task == "drop" then
+					Spring.GiveOrderToUnit(id,CMD.MOVE,{data.target.x,Spring.GetGroundHeight(data.target.x,data.target.y),data.target.y},0) -- make sure it is moving towards its goal
+				end
+				if data.task == "Kamikaze" then
+					local x,y,z = Spring.GetUnitPosition(id)
+					if (x-data.target.x)*(x-data.target.x)+ (z -data.target.y)* (z -data.target.y) < 250*250 then
+						Spring.AddUnitImpulse(id,0,-60,0)
+						Spring.GiveOrderToUnit(id,CMD.SELFD,{},0)
+					end
+				end
+			end
+			if GetUnitTransporting(id) and (data.task == "Carry" or data.task == "drop") then
+				local x,y,z = Spring.GetUnitPosition(id)
+				if (x-data.target.x)*(x-data.target.x)+ (z -data.target.y)* (z -data.target.y) < 250*250 and ascensionunits[id] == nil then -- time to begin our ascent
+					if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] AI: arrived at (" .. x .. "," .. y .. "). Begining ascent loop.") end
+					local id2 = id
+					--table.insert(ascensionunits,{myid = id2,x=x,y=y,z=z,xpo=1,ro=0,movectrl = false})
+					ascensionunits[id] = {x=x,y=y,z=z,xpo=1,ro=0,movectrl = false}
+					x,y,z,id2 = nil
+				end
+			end
+		end
+	end
+	-- Ascension --
+	if f%5 == 0 and ascensionunits then
+		Ascension()
+	end
 end
  
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-  if Spring.GetUnitTeam(unitID) ~= gaiaid then -- it's not my unit
-    
-    if baddefs[unitDefID] == nil then -- this is a valid unit
-      if weightdefs[unitDefID] then
-        table.insert(targettable,{id = unitID,weight = weightdefs[unitDefID]})
-        maxweight = maxweight + weightdefs[unitDefID]
-        if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] New total weight: " .. maxweight) end
-      else
-        table.insert(targettable,{id = unitID,weight = kamikazedefs[unitDefID]})
-        table.insert(kamikazetable,{id = unitID, weight = kamikazedefs[unitDefID]})
-        kamikazetableu[unitID] = #kamikazetable
-        maxweight = maxweight + kamikazedefs[unitDefID]
-        if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] New total weight: " .. maxweight) end
-      end
-    end
-  end
+	if Spring.GetUnitTeam(unitID) ~= gaiaid then -- it's not my unit
+		if baddefs[unitDefID] == nil then -- this is a valid unit
+			if weightdefs[unitDefID] then
+				table.insert(targettable,{id = unitID,weight = weightdefs[unitDefID]})
+				maxweight = maxweight + weightdefs[unitDefID]
+				if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] New total weight: " .. maxweight) end
+			else
+				table.insert(targettable,{id = unitID,weight = kamikazedefs[unitDefID]})
+				table.insert(kamikazetable,{id = unitID, weight = kamikazedefs[unitDefID]})
+				kamikazetableu[unitID] = #kamikazetable
+				maxweight = maxweight + kamikazedefs[unitDefID]
+				if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] New total weight: " .. maxweight) end
+			end
+		end
+	end
 end
  
 function gadget:UnitDestroyed(unitID, unitDefID, teamID, attackerID, attackerDefID, attackerTeamID)
+	seenunits[unitID] = nil
   if weightdefs[unitDefID] or kamikazedefs[unitDefID] then
     maxweight = maxweight - (weightdefs[unitDefID] or kamikazedefs[unitDefID] or 0)
     if kamikazetableu[unitID] then
@@ -677,9 +705,4 @@ function gadget:UnitDestroyed(unitID, unitDefID, teamID, attackerID, attackerDef
 		end
 	end
 	immuneunits[unitID] = nil
-end
-
-function gadget:GameStart()
-  Spring.SetGlobalLos(select(6,Spring.GetTeamInfo(gaiaid)),true)
-end
 end
