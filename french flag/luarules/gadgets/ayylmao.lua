@@ -141,7 +141,7 @@ local function AiThread()
 	local unitqueue
 	for unitID,_ in pairs(otherunits) do
 		unitqueue = Spring.GetCommandQueue(unitID)
-		if #unitqueue == 0 then
+		if #unitqueue == 0 then -- idle unit
 			local randx = math.random(0,mapx)
 			local randy = math.random(0,mapy)
 			Spring.GiveOrderToUnit(unitID,CMD.FIGHT,{ranx,Spring.GetGroundHeight(randx,randy),rany},0)
@@ -150,6 +150,8 @@ local function AiThread()
 end
  
 local function CanSpawn(abdtype)
+  Spring.Echo("CanSpawn:" .. abdtype)
+  Spring.Echo(UnitDefNames[abductors[abdtype].unitdef].id)
   if Spring.GetTeamUnitDefCount(gaiaid, UnitDefNames[abductors[abdtype].unitdef].id) > abductors[abdtype].max then
     if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Can't spawn any more abductors! Max of " .. abductors[abdtype].max .. " reached!") end
     return false
@@ -182,17 +184,20 @@ local function UpgradeBestUnit()
 	end
 	if bestname ~= "" then
 		if level >= 10 then
-		if math.random(1,4) > 3 then
-			abductors[bestname].hpbonus = abductors[bestname].hpbonus + math.min((level+1)/100, 0.5)
-		else
-			if abductors[bestname].spawnrate > abductors[bestname].minspawnrate then
-				abductors[bestname].spawnrate = math.ceil(abductors[bestname].spawnrate/2)
-				if abductors[bestname].spawnrate < abductors[bestname].minspawnrate then
-					abductors[bestname].spawnrate = abductors[bestname].minspawnrate
-				end
-			else
+			if math.random(1,4) > 3 then
 				abductors[bestname].hpbonus = abductors[bestname].hpbonus + math.min((level+1)/100, 0.5)
+			else
+				if abductors[bestname].spawnrate > abductors[bestname].minspawnrate then
+					abductors[bestname].spawnrate = math.ceil(abductors[bestname].spawnrate/2)
+					if abductors[bestname].spawnrate < abductors[bestname].minspawnrate then
+						abductors[bestname].spawnrate = abductors[bestname].minspawnrate
+					end
+				else
+					abductors[bestname].hpbonus = abductors[bestname].hpbonus + math.min((level+1)/100, 0.5)
+				end
 			end
+		else
+			abductors[bestname].hpbonus = abductors[bestname].hpbonus + math.min((level+1)/100, 0.5)
 		end
 	end
 end
@@ -284,7 +289,57 @@ local function SpawnAbductor(abdtype)
   unit,x,y = nil
 end
 
+local function MajorOffense()
+	Spring.Echo("game_message: ALIENS planning MAJOR offensive. . .")
+	local randomnum = math.random(1,100)
+	if randomnum <= 2 then
+		local ra = 0
+		for i=1, 20 do
+			ra = math.random(1,4)
+			if ra > 2 then
+				SpawnLimitlessAbductor("storagedrone")
+			else
+				SpawnLimitlessAbductor("pylondrone")
+			end
+		end
+		Spring.Echo("Attack drones!")
+	elseif randomnum > 2 and randomnum <= 20 then
+		for i=1, 20 do
+			SpawnLimitlessAbductor("malflyingcom")
+			SpawnLimitlessAbductor("flyingcom")
+		end
+	elseif randomnum > 20 and randomnum <= 30 then
+		for i=1, 10 do
+			SpawnAbductor("abductor")
+		end
+	elseif  randomnum > 30 and randomnum <= 50 then
+		UpgradeBestUnit()
+	elseif randomnum > 50 and randomnum <= 70 then
+		
+	elseif randomnum == 89 or randomnum > 98 then
+		for i=1, 10 do
+			SpawnLimitlessAbductor("alienkoda")
+		end
+	elseif randomnum == 80 then
+		if techpoints < 0 then		
+			techpoints = math.ceil(math.abs(techpoints) / 2)
+		else
+			techpoints = techpoints + math.ceil(math.abs(techpoints) / 2)
+		end
+	else
+		for i=1, 20 do
+			SpawnLimitlessAbductor("abductor")
+			SpawnLimitlessAbductor("storagedrone")
+			SpawnLimitlessAbductor("pylondrone")
+			SpawnLimitlessAbductor("alienkoda")
+		end
+	end
+end
+
 local function TechHandler()
+	if Spring.GetGameFrame()%300 == 0 then
+		Spring.Echo("Tech Handler: " .. "\nPoints: " .. techpoints .. "/" .. nextlevel .. "(Level " .. level .. ")")
+	end
 	if techpoints > nextlevel then
 		Spring.Echo("New level: " .. level)
 		if level == 0 then
@@ -315,7 +370,7 @@ local function TechHandler()
 				UpgradeBestUnit()
 			end
 		elseif level == 12 then
-			Spring.Echo("game_message: Latest Intelligence bulletin: ALIENS are absorbing health from their kills! THIS IS BAD!"
+			Spring.Echo("game_message: Latest Intelligence bulletin: ALIENS are absorbing health from their kills! THIS IS BAD!")
 			UpgradeBestUnit()
 			UpgradeBestUnit()
 		elseif level == 14 then
@@ -338,7 +393,14 @@ local function TechHandler()
 			Spring.Echo("game_message: We've received reports of kodachis being released from the aliens. Something is going on...")
 			UpgradeBestUnit()
 			UpgradeBestUnit()
-		elseif level == 24 then
+		elseif level == 30 then
+			Spring.Echo("game_message: Aliens have deployed active cloaking technology!")
+			MajorOffense()
+		elseif level == 40 then
+			Spring.Echo("game_message: Aliens have improved their active cloaking technology.. This could be bad!")
+		elseif level > 30 and level%5 == 3 then
+			UpgradeBestUnit()
+			MajorOffense()
 		else
 			UpgradeBestUnit()
 		end
@@ -351,46 +413,7 @@ local function TechHandler()
 	end
 	if techpoints < -500 and Spring.GetGameFrame() > nextoffensive then
 		nextoffensive = math.max(Spring.GetGameFrame() + (1800*(50/level)),1800)
-		Spring.Echo("game_message: ALIENS planning MAJOR offensive. . .")
-		local randomnum = math.random(1,100)
-		if randomnum <= 2 then
-			local ra = 0
-			for i=1, 20 do
-				ra = math.random(1,4)
-				if ra > 2 then
-					SpawnLimitlessAbductor("storagedrone")
-				else
-					SpawnLimitlessAbductor("pylondrone")
-				end
-			end
-			Spring.Echo("Attack drones!")
-		elseif randomnum > 2 and randomnum <= 20 then
-			for i=1, 20 do
-				SpawnLimitlessAbductor("malflyingcom")
-				SpawnLimitlessAbductor("flyingcom")
-			end
-		elseif randomnum > 20 and randomnum <= 30 then
-			for i=1, 10 do
-				SpawnAbductor("abductor")
-			end
-		elseif  randomnum > 30 and randomnum <= 50 then
-			UpgradeBestUnit()
-		elseif randomnum > 50 and randomnum <= 70 then
-			
-		elseif randomnum == 89 or randomnum > 98 then
-			for i=1, 10
-				SpawnLimitlessAbductor("alienkoda")
-			end
-		elseif randomnum == 80 then
-			techpoints = math.ceil(math.abs(techpoints) / 2)
-		else
-			for i=1, 20 do
-				SpawnLimitlessAbductor("abductor")
-				SpawnLimitlessAbductor("storagedrone")
-				SpawnLimitlessAbductor("pylondrone")
-				SpawnLimitlessAbductor("alienkoda")
-			end
-		end
+		MajorOffense()
 	end
 end
  
@@ -450,8 +473,8 @@ end
  
 local function SpawnThread()
 	for abdtype,data in pairs(abductors) do
-		--Spring.Echo("Spawnthread:" .. tostring(abdtype) .. "," .. tostring(data))
-		if Spring.GetGameFrame()%data["spawnrate"] == 0 and CanSpawn(abdtype) and data.unlocked then
+		Spring.Echo("Spawnthread:" .. tostring(abdtype))
+		if Spring.GetGameFrame()%data["spawnrate"] == 0 and CanSpawn(abdtype) and data.unlocked == true then
 			Spring.Echo("Spawning abductor. type: " .. abdtype)
 			SpawnAbductor(abdtype)
 		end
@@ -498,9 +521,6 @@ function gadget:GameFrame(f)
   -- spawns --
   SpawnThread()
   AiThread()
-  if f%300 == 0 then
-    healthbonus = healthbonus + 0.01
-  end
   -- AI --
   if f%90 == 0 then -- update unit orders.
     -- update abductor orders
@@ -584,7 +604,7 @@ function gadget:GameFrame(f)
 			  Spring.Echo("Abduction Successful! Gained " .. math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25))
 			  abductors["abductor"].techpoints = abductors["abductor"].techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25)
 			  techpoints = techpoints + math.ceil(UnitDefs[Spring.GetUnitDefID(transported[1])].metalCost/25)
-            elseif transported[1] ~= nil
+            elseif transported[1] ~= nil then
               if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Ascent[" .. id .. "]: Issueing drop order.") end
               Spring.GiveOrderToUnit(id,35000,{},0)
               Spring.AddUnitImpulse(id,0,data.xpo*-2,0)
