@@ -150,27 +150,27 @@ local function AiThread()
 end
  
 local function CanSpawn(abdtype)
-  Spring.Echo("CanSpawn:" .. abdtype)
-  Spring.Echo(UnitDefNames[abductors[abdtype].unitdef].id)
-  if Spring.GetTeamUnitDefCount(gaiaid, UnitDefNames[abductors[abdtype].unitdef].id) > abductors[abdtype].max then
-    if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Can't spawn any more abductors! Max of " .. abductors[abdtype].max .. " reached!") end
-    return false
-  else
-    return true
-  end
+	Spring.Echo("CanSpawn:" .. abdtype)
+	Spring.Echo(UnitDefNames[abductors[abdtype].unitdef].id)
+	if Spring.GetTeamUnitDefCount(gaiaid, UnitDefNames[abductors[abdtype].unitdef].id) > abductors[abdtype].max then
+		if debug then Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] Can't spawn any more abductors! Max of " .. abductors[abdtype].max .. " reached!") end
+		return false
+	else
+		return true
+	end
 end
  
 local function GetUnitTransporting(id)
-  local transporting = Spring.GetUnitIsTransporting(id)
-  if transporting == nil or #transporting == 0 then
-    transporting = false
-  else
-    transporting = true
-  end
-  if debug then
-    Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] ID " .. id .. " is transporting: " .. tostring(transporting))
-  end
-  return transporting
+	local transporting = Spring.GetUnitIsTransporting(id)
+	if transporting == nil or #transporting == 0 then
+		transporting = false
+	else
+		transporting = true
+	end
+	if debug then
+		Spring.Log("Ayylmao", LOG.NOTICE,"[Ayylmao] ID " .. id .. " is transporting: " .. tostring(transporting))
+	end
+	return transporting
 end
 
 local function UpgradeBestUnit()
@@ -203,45 +203,45 @@ local function UpgradeBestUnit()
 end
 
 local function SpawnLimitlessAbductor(abdtype)
-  local random = math.random(1,4)
-  local unit
-  local x,y
-  if random == 1 then -- topleft
-    x = -5000
-    y = math.random(-2000,mapy+2000)
-  end
-  if random == 2 then -- topright
-    x = mapx + 2000
-    y = math.random(-2000,mapy+2000)
-  end
-  if random == 3 then -- bottom
-    x = math.random(-2000,mapx+2000)
-    y = mapy + 2000
-  end
-  if random == 4 then -- left
-    x = -5000
-    y = mapy + 2000
-  end
-  unit = Spring.CreateUnit(abdtype,x,200,y,0,gaiaid)
-  Spring.MoveCtrl.Enable(unit)
-  Spring.MoveCtrl.SetPosition(x,0,y)
-  Spring.MoveCtrl.Disable(unit)
-  Spring.SetUnitMaxHealth(unit, (UnitDefs[abdtype].health*healthbonus))
-  Spring.SetUnitHealth(unit,(UnitDefs[abductors[abdtype].unitdef].health*healthbonus))
-  if level > 20 and Spring.ValidUnitID(unit) then
-    Spring.SetUnitStealth(unit, true)
-  end
-  if level > 30 and Spring.ValidUnitID(unit) then
-    Spring.SetUnitCloak(unit,true,2)
-  end
-  if level > 40 and Spring.ValidUnitID(unit) then
-    Spring.SetUnitCloak(unit,true,3)
-  end
-  if abdtype == "abductor" then
-	myunits[unit] = {task = "none"}
-  else otherunits[unit] = unit
-  end
-  unit,x,y = nil
+	local random = math.random(1,4)
+	local unit
+	local x,y
+	if random == 1 then -- topleft
+		x = -5000
+		y = math.random(-2000,mapy+2000)
+	end
+	if random == 2 then -- topright
+		x = mapx + 2000
+		y = math.random(-2000,mapy+2000)
+	end
+	if random == 3 then -- bottom
+		x = math.random(-2000,mapx+2000)
+		y = mapy + 2000
+	end
+	if random == 4 then -- left
+		x = -5000
+		y = mapy + 2000
+	end
+	unit = Spring.CreateUnit(abdtype,x,200,y,0,gaiaid)
+	Spring.MoveCtrl.Enable(unit)
+	Spring.MoveCtrl.SetPosition(x,0,y)
+	Spring.MoveCtrl.Disable(unit)
+	Spring.SetUnitMaxHealth(unit, (UnitDefs[abdtype].health*healthbonus))
+	Spring.SetUnitHealth(unit,(UnitDefs[abductors[abdtype].unitdef].health*healthbonus))
+	if level > 20 and Spring.ValidUnitID(unit) then
+		Spring.SetUnitStealth(unit, true)
+	end
+	if level > 30 and Spring.ValidUnitID(unit) then
+		Spring.SetUnitCloak(unit,true,2)
+	end
+	if level > 40 and Spring.ValidUnitID(unit) then
+		Spring.SetUnitCloak(unit,true,3)
+	end
+	if abdtype == "abductor" then
+		myunits[unit] = {task = "none"}
+	else otherunits[unit] = unit
+	end
+	unit,x,y = nil
 end
  
 local function SpawnAbductor(abdtype)
@@ -453,22 +453,22 @@ end
  
  
 local function AssignOrder(ID)
-  local targetid = GetRandomWeightedChanceID()
-  if targetid == false then
-    return
-  end
-  if kamikazetableu[targetid] then
-    myunits[ID].task = "Kamikaze"
-    myunits[ID].target = {id = targetid, x=0, y=0}
-    local x,y,z = Spring.GetUnitPosition(targetid)
-    Spring.GiveOrderToUnit(ID,CMD.MOVE,{x,y,z},0)
-    x,y,z,targetid = nil
-  else
-    myunits[ID].task = "Abduct"
-    myunits[ID].target = targetid
-    Spring.GiveOrderToUnit(ID,CMD.LOAD_UNITS,{targetid},0)
-    targetid = nil
-  end
+	local targetid = GetRandomWeightedChanceID()
+	if targetid == false then
+		return
+	end
+	if kamikazetableu[targetid] then
+		myunits[ID].task = "Kamikaze"
+		myunits[ID].target = {id = targetid, x=0, y=0}
+		local x,y,z = Spring.GetUnitPosition(targetid)
+		Spring.GiveOrderToUnit(ID,CMD.MOVE,{x,y,z},0)
+		x,y,z,targetid = nil
+	else
+		myunits[ID].task = "Abduct"
+		myunits[ID].target = targetid
+		Spring.GiveOrderToUnit(ID,CMD.LOAD_UNITS,{targetid},0)
+		targetid = nil
+	end
 end
  
 local function SpawnThread()
@@ -489,33 +489,33 @@ local function SpawnThread()
 end
  
 function gadget:Initialize()
-  Spring.Echo("Ayy lmao: Initialized. Building tables...")
-  mapx = Game.mapSizeX
-  mapy = Game.mapSizeZ
-  gaiaid = Spring.GetGaiaTeamID()
-  --Build weight tables--
-  for id,data in pairs(UnitDefs) do
-    if data.isAirUnit or ((data.isBuilding or data.isFactory or data.isStaticBuilder or data.isImmobile) and (data.health > 4500 or math.floor((math.floor(data.health/100) + math.floor(data.energyCost/60))/1.75) == 0)) or math.floor(data.health/100) + math.floor(data.energyCost/60) == 0 then
-      baddefs[id] = true
-      if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: bad def") end
-    else
-      if (data.isBuilding or data.isFactory or data.isStaticBuilder or data.isImmobile) and data.health < 4999 then
-        kamikazedefs[id] = math.floor((math.floor(data.health/100) + math.floor(data.energyCost/60))/1.75)
-        if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: kamikaze (" .. kamikazedefs[id] .. ")") end
-      else
-        if data.cantBeTransported == true then
-           baddefs[id] = true
-           if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: bad def (Can't Transport)") end
-        else
-           weightdefs[id] = math.floor(data.health/100) + math.floor(data.energyCost/60)
-           if UnitDefs[id].customParams.commtype or UnitDefs[id].customParams.iscommander then
-              weightdefs[id] = weightdefs[id] * (((data.customParams.level or 1) + 1) * 2)
-           end
-        if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: " .. weightdefs[id]) end
-       end
-      end
-    end
-  end
+	Spring.Echo("Ayy lmao: Initialized. Building tables...")
+	mapx = Game.mapSizeX
+	mapy = Game.mapSizeZ
+	gaiaid = Spring.GetGaiaTeamID()
+	--Build weight tables--
+	for id,data in pairs(UnitDefs) do
+		if data.isAirUnit or ((data.isBuilding or data.isFactory or data.isStaticBuilder or data.isImmobile) and (data.health > 4500 or math.floor((math.floor(data.health/100) + math.floor(data.energyCost/60))/1.75) == 0)) or math.floor(data.health/100) + math.floor(data.energyCost/60) == 0 then
+			baddefs[id] = true
+			if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: bad def") end
+		else
+			if (data.isBuilding or data.isFactory or data.isStaticBuilder or data.isImmobile) and data.health < 4999 then
+				kamikazedefs[id] = math.floor((math.floor(data.health/100) + math.floor(data.energyCost/60))/1.75)
+				if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: kamikaze (" .. kamikazedefs[id] .. ")") end
+			else
+				if data.cantBeTransported == true then
+					baddefs[id] = true
+					if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: bad def (Can't Transport)") end
+				else
+					weightdefs[id] = math.floor(data.health/100) + math.floor(data.energyCost/60)
+					if UnitDefs[id].customParams.commtype or UnitDefs[id].customParams.iscommander then
+						weightdefs[id] = weightdefs[id] * (((data.customParams.level or 1) + 1) * 2)
+					end
+					if debug then Spring.Echo("[Ayylmao] " .. id .. "(" .. data.humanName .. ") result: " .. weightdefs[id]) end
+				end
+			end
+		end
+	end
 end
  
 function gadget:GameFrame(f)
